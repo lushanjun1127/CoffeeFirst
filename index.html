@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CoffeeFirst · 我的起始页</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <!-- 时钟 -->
+    <section class="clock">
+      <div id="time" class="time">--:--</div>
+      <div id="date" class="date">----</div>
+    </section>
+
+    <!-- 搜索 -->
+    <section class="search">
+      <div class="search-box">
+        <button id="engine-toggle" class="engine-btn" title="切换搜索引擎">🔍 Google</button>
+        <input id="search-input" type="text" placeholder="搜索或输入网址后回车" autocomplete="off" spellcheck="false">
+        <button id="search-go" class="go-btn" title="搜索 (Enter)">↵</button>
+      </div>
+      <p class="hint">Enter 搜索 · Ctrl+K / "/" 聚焦搜索框 · Esc 清空</p>
+    </section>
+
+    <!-- 书签网格 -->
+    <section class="bookmarks">
+      <div id="grid" class="grid"></div>
+      <button id="add-bookmark" class="add-btn" title="添加书签">＋</button>
+    </section>
+  </main>
+
+  <!-- 编辑弹窗 -->
+  <dialog id="edit-dialog">
+    <form method="dialog" class="edit-form">
+      <h3 id="dialog-title">添加书签</h3>
+      <label>名称
+        <input id="bm-name" type="text" maxlength="20" required placeholder="如：GitHub">
+      </label>
+      <label>网址
+        <input id="bm-url" type="url" required placeholder="https://github.com">
+      </label>
+      <div class="dialog-actions">
+        <button type="button" id="bm-delete" class="danger hidden">删除</button>
+        <span class="spacer"></span>
+        <button type="button" id="bm-cancel" class="ghost">取消</button>
+        <button type="submit" id="bm-save" class="primary">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="script.js"></script>
+</body>
+</html>
