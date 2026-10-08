@@ -18,28 +18,67 @@
   setInterval(tick, 1000);
 
   /* ---------- 搜索 ---------- */
+  // bang：快捷语法前缀（如 "!g 关键词" 临时用 Google，不改变默认引擎）
   const ENGINES = [
-    { name: "Google", url: "https://www.google.com/search?q=" },
-    { name: "Bing", url: "https://www.bing.com/search?q=" },
-    { name: "百度", url: "https://www.baidu.com/s?wd=" },
+    { name: "Google",     icon: "🔍", bang: "!g",   url: "https://www.google.com/search?q=" },
+    { name: "Bing",       icon: "🔍", bang: "!b",   url: "https://www.bing.com/search?q=" },
+    { name: "DuckDuckGo", icon: "🦆", bang: "!ddg", url: "https://duckduckgo.com/?q=" },
+    { name: "百度",       icon: "🐾", bang: "!bd",  url: "https://www.baidu.com/s?wd=" },
+    { name: "必应中国",   icon: "🌏", bang: "!cn",  url: "https://cn.bing.com/search?q=" },
+    { name: "搜狗",       icon: "🐶", bang: "!sg",  url: "https://www.sogou.com/web?query=" },
+    { name: "360搜索",    icon: "🔎", bang: "!so",  url: "https://www.so.com/s?q=" },
+    { name: "GitHub",     icon: "🐙", bang: "!gh",  url: "https://github.com/search?q=" },
+    { name: "MDN",        icon: "📘", bang: "!mdn", url: "https://developer.mozilla.org/zh-CN/search?q=" },
+    { name: "StackOverflow", icon: "📚", bang: "!so2", url: "https://stackoverflow.com/search?q=" },
+    { name: "知乎",       icon: "💬", bang: "!zh",  url: "https://www.zhihu.com/search?type=content&q=" },
+    { name: "B站",        icon: "📺", bang: "!bilibili", url: "https://search.bilibili.com/all?keyword=" },
+    { name: "YouTube",    icon: "▶️", bang: "!yt",  url: "https://www.youtube.com/results?search_query=" },
+    { name: "npm",        icon: "📦", bang: "!npm", url: "https://www.npmjs.com/search?q=" },
+    { name: "DeepL",      icon: "🌐", bang: "!dl",  url: "https://www.deepl.com/translator#en/zh/" },
   ];
   const ENGINE_KEY = "coffeefirst-engine";
-  let engineIdx = Number(localStorage.getItem(ENGINE_KEY)) || 0;
+  let engineIdx = Math.min(Number(localStorage.getItem(ENGINE_KEY)) || 0, ENGINES.length - 1);
 
   const engineBtn = document.getElementById("engine-toggle");
+  const engineMenu = document.getElementById("engine-menu");
   const input = document.getElementById("search-input");
 
-  function renderEngine() {
-    engineBtn.textContent = "🔍 " + ENGINES[engineIdx].name;
+  function buildEngineMenu() {
+    engineMenu.innerHTML = "";
+    ENGINES.forEach((eng, i) => {
+      const item = document.createElement("button");
+      item.type = "button";
+      item.className = "menu-item" + (i === engineIdx ? " active" : "");
+      item.textContent = `${eng.icon} ${eng.name}`;
+      item.addEventListener("click", () => {
+        engineIdx = i;
+        localStorage.setItem(ENGINE_KEY, i);
+        renderEngine();
+        closeMenu();
+        input.focus();
+      });
+      engineMenu.appendChild(item);
+    });
   }
-  renderEngine();
 
-  engineBtn.addEventListener("click", () => {
-    engineIdx = (engineIdx + 1) % ENGINES.length;
-    localStorage.setItem(ENGINE_KEY, engineIdx);
-    renderEngine();
-    input.focus();
+  function renderEngine() {
+    const eng = ENGINES[engineIdx];
+    engineBtn.innerHTML = `<span class="engine-icon">${eng.icon}</span> ${eng.name} <span class="caret">▾</span>`;
+    buildEngineMenu();
+  }
+
+  function closeMenu() { engineMenu.classList.add("hidden"); }
+
+  // 点击按钮弹出引擎列表；点击页面其他处关闭
+  engineBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const open = engineMenu.classList.toggle("hidden") === false;
+    if (open) engineMenu.scrollTop = engineIdx * 36 - 72; // 让当前项大致居中
   });
+  document.addEventListener("click", closeMenu);
+  engineMenu.addEventListener("click", (e) => e.stopPropagation());
+
+  renderEngine();
 
   // 看起来像网址就直接打开，否则搜索
   function looksLikeUrl(s) {
@@ -51,26 +90,41 @@
   function doSearch() {
     const q = input.value.trim();
     if (!q) return;
+    // 快捷语法：!g !b !ddg 等前缀临时指定引擎（不改变默认选择）
+    const bang = ENGINES.find(e => e.bang && q.toLowerCase().startsWith(e.bang + " "));
     if (looksLikeUrl(q)) {
       const url = /^https?:\/\//i.test(q) ? q : "https://" + q;
       location.href = url;
+    } else if (bang) {
+      const kw = q.slice(bang.bang.length + 1).trim();
+      location.href = bang.url + encodeURIComponent(kw);
     } else {
-      location.href = ENGINES[engineIdx].url + encodeURIComponent(q);
+      const eng = ENGINES[engineIdx];
+      location.href = eng.url + encodeURIComponent(q);
     }
   }
 
   document.getElementById("search-go").addEventListener("click", doSearch);
   input.addEventListener("keydown", (e) => {
     if (e.key === "Enter") doSearch();
-    if (e.key === "Escape") input.value = "";
+    if (e.key === "Escape") {
+      if (!engineMenu.classList.contains("hidden")) closeMenu();
+      else input.value = "";
+    }
   });
 
-  // 快捷键：Ctrl+K 或 "/" 聚焦
+  // 快捷键：Ctrl+K 或 "/" 聚焦；Alt+←/→ 切换引擎
   document.addEventListener("keydown", (e) => {
     const typing = /input|textarea/i.test(document.activeElement.tagName);
     if ((e.ctrlKey && e.key.toLowerCase() === "k") || (e.key === "/" && !typing)) {
       e.preventDefault();
       input.focus();
+    }
+    if (e.altKey && (e.key === "ArrowRight" || e.key === "ArrowLeft")) {
+      e.preventDefault();
+      engineIdx = (engineIdx + (e.key === "ArrowRight" ? 1 : -1) + ENGINES.length) % ENGINES.length;
+      localStorage.setItem(ENGINE_KEY, engineIdx);
+      renderEngine();
     }
   });
 
