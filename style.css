@@ -70,6 +70,48 @@ body {
   white-space: nowrap;
 }
 .engine-btn:hover { background: rgba(255, 184, 107, 0.12); }
+.engine-btn .caret { font-size: 10px; opacity: 0.7; margin-left: 2px; }
+.engine-wrap { position: relative; }
+.engine-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 30;
+  width: 200px;
+  max-height: 264px;
+  overflow-y: auto;
+  background: #241d30;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  animation: menu-in 0.12s ease-out;
+}
+@keyframes menu-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+.engine-menu::-webkit-scrollbar { width: 6px; }
+.engine-menu::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+.menu-item {
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  text-align: left;
+  padding: 8px 12px;
+  height: 36px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.menu-item:hover { background: rgba(255, 184, 107, 0.14); }
+.menu-item.active { background: rgba(255, 184, 107, 0.22); color: var(--accent); font-weight: 600; }
 #search-input {
   flex: 1;
   min-width: 0;
