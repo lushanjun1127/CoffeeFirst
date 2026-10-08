@@ -18,11 +18,14 @@
     <!-- 搜索 -->
     <section class="search">
       <div class="search-box">
-        <button id="engine-toggle" class="engine-btn" title="切换搜索引擎">🔍 Google</button>
-        <input id="search-input" type="text" placeholder="搜索或输入网址后回车" autocomplete="off" spellcheck="false">
+        <div class="engine-wrap">
+          <button id="engine-toggle" class="engine-btn" title="选择搜索引擎 (Alt+←/→)">🔍 Google</button>
+          <div id="engine-menu" class="engine-menu hidden" role="menu"></div>
+        </div>
+        <input id="search-input" type="text" placeholder="搜索或输入网址后回车，支持 !g !bd 等快捷语法" autocomplete="off" spellcheck="false">
         <button id="search-go" class="go-btn" title="搜索 (Enter)">↵</button>
       </div>
-      <p class="hint">Enter 搜索 · Ctrl+K / "/" 聚焦搜索框 · Esc 清空</p>
+      <p class="hint">Enter 搜索 · Ctrl+K / "/" 聚焦 · Alt+←/→ 切换引擎 · "!g 关键词" 快捷指定引擎 · Esc 清空</p>
     </section>
 
     <!-- 书签网格 -->
