@@ -13,7 +13,7 @@
 
 ## 本地开发
 
-使用 Node.js 20（与部署工作流一致）和 npm：
+使用 Node.js 24（与部署工作流一致）和 npm：
 
 ```bash
 npm ci
@@ -33,7 +33,7 @@ npm run preview
 
 1. 在仓库 **Settings → Pages → Build and deployment** 中，将 **Source** 设置为 **GitHub Actions**。
 2. 将修改提交并推送到 `main` 分支。
-3. `.github/workflows/deploy.yml` 中的 **Deploy to GitHub Pages** 工作流会自动运行：使用 Node.js 20，执行 `npm ci` 和 `npm run build`，上传 `dist/` 并由 `deploy` 作业发布到 GitHub Pages。
+3. `.github/workflows/deploy.yml` 中的 **Deploy to GitHub Pages** 工作流会自动运行：使用 Node.js 24，执行 `npm ci` 和 `npm run build`，上传 `dist/` 并由 `deploy` 作业发布到 GitHub Pages。
 4. 在仓库 [Actions](https://github.com/lushanjun1127/CoffeeFirst/actions) 页面确认工作流成功后，访问在线地址。
 
 `vite.config.ts` 中的 `base` 为 `/CoffeeFirst/`，对应 GitHub Pages 的仓库路径；如果更改仓库名或部署路径，请同步修改此配置。
