@@ -1,5 +1,7 @@
 /* CoffeeFirst - 我的起始页 */
 import './styles/main.scss'
+import { readStorage, writeStorage, parseEngineIndex, normalizeHttpUrl, looksLikeAddress, parseBookmarks } from './core'
+import type { Bookmark } from './core'
 
 /* ---------- 类型定义 ---------- */
 interface SearchEngine {
@@ -9,9 +11,9 @@ interface SearchEngine {
   url: string
 }
 
-interface Bookmark {
-  name: string
-  url: string
+const statusEl = document.querySelector<HTMLParagraphElement>('#app-status')
+function notify(message: string): void {
+  if (statusEl) statusEl.textContent = message
 }
 
 /* ---------- 时钟 ---------- */
@@ -52,7 +54,9 @@ const ENGINES: SearchEngine[] = [
 ]
 
 const ENGINE_KEY = 'coffeefirst-engine'
-let engineIdx = Math.min(Number(localStorage.getItem(ENGINE_KEY)) || 0, ENGINES.length - 1)
+const storedEngine = readStorage(ENGINE_KEY)
+let engineIdx = parseEngineIndex(storedEngine.value, ENGINES.length)
+if (!storedEngine.ok) notify('无法读取本地设置，已使用默认设置。保存修改时将再次尝试。')
 
 const engineBtn = document.querySelector<HTMLButtonElement>('#engine-toggle')
 const engineMenu = document.querySelector<HTMLDivElement>('#engine-menu')
@@ -65,14 +69,12 @@ function buildEngineMenu(): void {
   ENGINES.forEach((eng, i) => {
     const item = document.createElement('button')
     item.type = 'button'
+    item.setAttribute('role', 'menuitemradio')
+    item.tabIndex = -1
     item.className = 'menu-item' + (i === engineIdx ? ' active' : '')
     item.textContent = `${eng.icon} ${eng.name}`
     item.addEventListener('click', () => {
-      engineIdx = i
-      localStorage.setItem(ENGINE_KEY, String(i))
-      renderEngine()
-      closeMenu()
-      input?.focus()
+      if (selectEngine(i)) closeMenu(true)
     })
     engineMenu.appendChild(item)
   })
@@ -83,44 +85,102 @@ function renderEngine(): void {
   const eng = ENGINES[engineIdx]
   if (!eng) return
   engineBtn.innerHTML = `<span class="engine-icon">${eng.icon}</span> ${eng.name} <span class="caret">▾</span>`
-  buildEngineMenu()
+  engineMenu?.querySelectorAll<HTMLButtonElement>('.menu-item').forEach((item, index) => {
+    item.classList.toggle('active', index === engineIdx)
+    item.setAttribute('aria-checked', String(index === engineIdx))
+  })
 }
 
-function closeMenu(): void {
+function selectEngine(index: number): boolean {
+  if (!Number.isInteger(index) || index < 0 || index >= ENGINES.length) return false
+  // Persist first: failure leaves both memory and the UI at their old values.
+  if (!writeStorage(ENGINE_KEY, String(index))) {
+    notify('搜索引擎保存失败，已保留原选择。请检查浏览器存储权限或空间。')
+    return false
+  }
+  engineIdx = index
+  renderEngine()
+  notify('')
+  return true
+}
+
+function closeMenu(restoreFocus = false): void {
   engineMenu?.classList.add('hidden')
+  engineBtn?.setAttribute('aria-expanded', 'false')
+  if (restoreFocus) engineBtn?.focus()
+}
+
+function focusMenuItem(index: number): void {
+  const item = engineMenu?.querySelectorAll<HTMLButtonElement>('.menu-item')[index]
+  item?.focus({ preventScroll: true })
+  // Use actual item geometry; labels may wrap or use larger fonts.
+  if (item && engineMenu) {
+    const top = item.offsetTop
+    const bottom = top + item.offsetHeight
+    if (top < engineMenu.scrollTop) engineMenu.scrollTop = top
+    else if (bottom > engineMenu.scrollTop + engineMenu.clientHeight) engineMenu.scrollTop = bottom - engineMenu.clientHeight
+  }
+}
+
+function openMenu(index = engineIdx): void {
+  if (!engineMenu) return
+  engineMenu.classList.remove('hidden')
+  engineBtn?.setAttribute('aria-expanded', 'true')
+  focusMenuItem(index)
 }
 
 // 点击按钮弹出引擎列表；点击页面其他处关闭
 engineBtn?.addEventListener('click', (e: MouseEvent) => {
   e.stopPropagation()
   if (!engineMenu) return
-  const open = engineMenu.classList.toggle('hidden') === false
-  if (open) engineMenu.scrollTop = engineIdx * 36 - 72 // 让当前项大致居中
+  if (engineMenu.classList.contains('hidden')) openMenu()
+  else closeMenu(true)
 })
-document.addEventListener('click', closeMenu)
+engineBtn?.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault()
+    openMenu(e.key === 'ArrowDown' ? 0 : ENGINES.length - 1)
+  } else if (e.key === 'Escape') closeMenu(true)
+})
+engineMenu?.addEventListener('keydown', (e) => {
+  const items = Array.from(engineMenu.querySelectorAll<HTMLButtonElement>('.menu-item'))
+  const index = items.findIndex((item) => item === document.activeElement)
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    closeMenu(true)
+  } else if (e.key === 'Tab') closeMenu()
+  else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
+    e.preventDefault()
+    const next = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1
+      : (index + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length
+    focusMenuItem(next)
+  }
+})
+document.addEventListener('click', () => closeMenu())
+document.addEventListener('focusin', (e) => {
+  if (e.target instanceof Node && !engineBtn?.contains(e.target) && !engineMenu?.contains(e.target)) closeMenu()
+})
 engineMenu?.addEventListener('click', (e: MouseEvent) => e.stopPropagation())
 
+buildEngineMenu()
 renderEngine()
 
 // 看起来像网址就直接打开，否则搜索
-function looksLikeUrl(s: string): boolean {
-  return /^(https?:\/\/)/i.test(s) ||
-    /^[\w-]+(\.[\w-]+)+(\/\S*)?$/.test(s) ||
-    /^localhost(:\d+)?(\/\S*)?$/.test(s)
-}
-
 function doSearch(): void {
   if (!input) return
   const q = input.value.trim()
   if (!q) return
   // 快捷语法：!g !b !ddg 等前缀临时指定引擎（不改变默认选择）
-  const bang = ENGINES.find((e) => e.bang && q.toLowerCase().startsWith(e.bang + ' '))
-  if (looksLikeUrl(q)) {
-    const url = /^https?:\/\//i.test(q) ? q : 'https://' + q
-    location.href = url
-  } else if (bang) {
-    const kw = q.slice(bang.bang.length + 1).trim()
+  const prefix = q.match(/^(!\S+)(?:\s+([\s\S]*))?$/)
+  const bang = ENGINES.find((engine) => engine.bang === prefix?.[1]?.toLowerCase())
+  if (bang) {
+    const kw = prefix?.[2]?.trim() ?? ''
+    if (!kw) { notify('请在搜索引擎快捷语法后输入关键词。'); return }
     location.href = bang.url + encodeURIComponent(kw)
+  } else if (looksLikeAddress(q) || /^[a-z][a-z\d+.-]*:/i.test(q)) {
+    const url = normalizeHttpUrl(q)
+    if (!url) { notify('网址无效，仅支持 HTTP 和 HTTPS 地址。'); return }
+    location.href = url
   } else {
     const eng = ENGINES[engineIdx]
     if (!eng) return
@@ -130,6 +190,7 @@ function doSearch(): void {
 
 searchGo?.addEventListener('click', doSearch)
 input?.addEventListener('keydown', (e: KeyboardEvent) => {
+  if (e.isComposing || e.keyCode === 229) return
   if (e.key === 'Enter') doSearch()
   if (e.key === 'Escape') {
     if (engineMenu && !engineMenu.classList.contains('hidden')) closeMenu()
@@ -139,6 +200,7 @@ input?.addEventListener('keydown', (e: KeyboardEvent) => {
 
 // 快捷键：Ctrl+K 或 "/" 聚焦；Alt+←/→ 切换引擎
 document.addEventListener('keydown', (e: KeyboardEvent) => {
+  if (e.isComposing || e.keyCode === 229 || dialog?.open) return
   const activeTag = document.activeElement instanceof HTMLElement
     ? document.activeElement.tagName
     : ''
@@ -149,9 +211,7 @@ document.addEventListener('keydown', (e: KeyboardEvent) => {
   }
   if (e.altKey && (e.key === 'ArrowRight' || e.key === 'ArrowLeft')) {
     e.preventDefault()
-    engineIdx = (engineIdx + (e.key === 'ArrowRight' ? 1 : -1) + ENGINES.length) % ENGINES.length
-    localStorage.setItem(ENGINE_KEY, String(engineIdx))
-    renderEngine()
+    selectEngine((engineIdx + (e.key === 'ArrowRight' ? 1 : -1) + ENGINES.length) % ENGINES.length)
   }
 })
 
@@ -166,34 +226,25 @@ const DEFAULT_BOOKMARKS: Bookmark[] = [
   { name: 'V2EX', url: 'https://www.v2ex.com' },
 ]
 
-// localStorage 中的 JSON 结构无法静态确定，用 unknown + 类型守卫校验
-function isBookmark(v: unknown): v is Bookmark {
-  return (
-    typeof v === 'object' &&
-    v !== null &&
-    typeof (v as { name?: unknown }).name === 'string' &&
-    typeof (v as { url?: unknown }).url === 'string'
-  )
-}
-
 function loadBookmarks(): Bookmark[] {
-  try {
-    const raw = localStorage.getItem(BM_KEY)
-    if (raw) {
-      const parsed: unknown = JSON.parse(raw)
-      if (Array.isArray(parsed) && parsed.every(isBookmark)) {
-        return parsed
-      }
-    }
-  } catch (e) { /* ignore */ }
-  return [...DEFAULT_BOOKMARKS]
+  const stored = readStorage(BM_KEY)
+  if (!stored.ok) notify('无法读取本地书签，已使用默认书签。保存修改时将再次尝试。')
+  return parseBookmarks(stored.value, DEFAULT_BOOKMARKS)
 }
 
 let bookmarks: Bookmark[] = loadBookmarks()
 let editingIndex = -1 // -1 表示新增
 
-function saveBookmarks(): void {
-  localStorage.setItem(BM_KEY, JSON.stringify(bookmarks))
+function saveBookmarks(next: Bookmark[]): boolean {
+  if (!writeStorage(BM_KEY, JSON.stringify(next))) {
+    if (dialogError) dialogError.textContent = '保存失败，原有书签未改变。请检查浏览器存储权限或空间。'
+    return false
+  }
+  bookmarks = next
+  notify('')
+  render()
+  dialog?.close()
+  return true
 }
 
 const grid = document.querySelector<HTMLDivElement>('#grid')
@@ -217,7 +268,8 @@ function makeFallback(name: string): HTMLDivElement {
   const div = document.createElement('div')
   div.className = 'fallback'
   div.style.background = colorFor(name)
-  div.textContent = name.slice(0, 1).toUpperCase()
+  div.textContent = Array.from(name)[0]?.toUpperCase() ?? '?'
+  div.setAttribute('aria-hidden', 'true')
   return div
 }
 
@@ -225,10 +277,12 @@ function render(): void {
   if (!grid) return
   grid.innerHTML = ''
   bookmarks.forEach((bm, i) => {
+    const card = document.createElement('div')
+    card.className = 'bookmark-card'
     const a = document.createElement('a')
     a.className = 'card'
     a.href = bm.url
-    a.title = bm.url + '\n（右键/长按可编辑）'
+    a.title = `${bm.name}\n${bm.url}`
 
     const icon = document.createElement('img')
     const fav = faviconUrl(bm.url)
@@ -237,23 +291,22 @@ function render(): void {
       icon.alt = ''
       icon.loading = 'lazy'
       icon.onerror = () => icon.replaceWith(makeFallback(bm.name))
-    } else {
-      icon.replaceWith(makeFallback(bm.name))
     }
 
     const label = document.createElement('span')
     label.textContent = bm.name
 
-    a.append(icon, label)
-    a.addEventListener('contextmenu', (e: MouseEvent) => {
-      e.preventDefault()
+    a.append(fav ? icon : makeFallback(bm.name), label)
+    const edit = document.createElement('button')
+    edit.type = 'button'
+    edit.className = 'bookmark-edit'
+    edit.textContent = '编辑'
+    edit.setAttribute('aria-label', `编辑书签：${bm.name}`)
+    edit.addEventListener('click', () => {
       openDialog(i)
     })
-    a.addEventListener('dblclick', (e: MouseEvent) => {
-      e.preventDefault()
-      openDialog(i)
-    })
-    grid.appendChild(a)
+    card.append(a, edit)
+    grid.appendChild(card)
   })
 }
 
@@ -266,10 +319,17 @@ const deleteBtn = document.querySelector<HTMLButtonElement>('#bm-delete')
 const addBtn = document.querySelector<HTMLButtonElement>('#add-bookmark')
 const cancelBtn = document.querySelector<HTMLButtonElement>('#bm-cancel')
 const form = dialog?.querySelector<HTMLFormElement>('form')
+const dialogError = document.querySelector<HTMLParagraphElement>('#dialog-error')
+let dialogOrigin: HTMLElement | null = null
 
 addBtn?.addEventListener('click', () => openDialog(-1))
 
 function openDialog(index: number): void {
+  closeMenu()
+  dialogOrigin = document.activeElement instanceof HTMLElement ? document.activeElement : null
+  if (dialogError) dialogError.textContent = ''
+  urlInput?.setCustomValidity('')
+  nameInput?.setCustomValidity('')
   editingIndex = index
   if (index >= 0) {
     const bm = bookmarks[index]
@@ -289,13 +349,17 @@ function openDialog(index: number): void {
 }
 
 cancelBtn?.addEventListener('click', () => dialog?.close())
+dialog?.addEventListener('close', () => {
+  const edited = editingIndex >= 0 ? grid?.querySelectorAll<HTMLButtonElement>('.bookmark-edit')[editingIndex] : null
+  const target = dialogOrigin?.isConnected ? dialogOrigin : edited ?? addBtn
+  target?.focus()
+})
+urlInput?.addEventListener('input', () => urlInput.setCustomValidity(''))
+nameInput?.addEventListener('input', () => nameInput.setCustomValidity(''))
 
 deleteBtn?.addEventListener('click', () => {
   if (editingIndex >= 0) {
-    bookmarks.splice(editingIndex, 1)
-    saveBookmarks()
-    render()
-    dialog?.close()
+    saveBookmarks(bookmarks.filter((_, index) => index !== editingIndex))
   }
 })
 
@@ -303,18 +367,18 @@ form?.addEventListener('submit', (e: Event) => {
   e.preventDefault()
   if (!nameInput || !urlInput) return
   const name = nameInput.value.trim()
-  let url = urlInput.value.trim()
-  if (!name || !url) return
-  if (!/^https?:\/\//i.test(url)) url = 'https://' + url
+  const url = normalizeHttpUrl(urlInput.value)
+  nameInput.setCustomValidity(!name ? '请输入书签名称。' : '')
+  urlInput.setCustomValidity(!url ? '请输入有效的 HTTP 或 HTTPS 网址，也可以输入域名或 localhost 地址。' : '')
+  if (!name || !url) { form?.reportValidity(); return }
   const item: Bookmark = { name, url }
+  const next = [...bookmarks]
   if (editingIndex >= 0) {
-    bookmarks[editingIndex] = item
+    next[editingIndex] = item
   } else {
-    bookmarks.push(item)
+    next.push(item)
   }
-  saveBookmarks()
-  render()
-  dialog?.close()
+  saveBookmarks(next)
 })
 
 render()

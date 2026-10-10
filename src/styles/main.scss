@@ -5,7 +5,7 @@ $bg-color: #1a1625;
 $bg-color-2: #2d2438;
 $surface-color: #241d30;
 $text-color: #f0eef5;
-$text-dim: rgba($text-color, 0.55);
+$text-dim: rgba($text-color, 0.75);
 $accent-color: #ffb86b;
 $accent-on: #2a1c08;
 $danger-color: #ff7b7b;
@@ -73,6 +73,7 @@ body {
 
 /* ---------- 搜索 ---------- */
 .search-box {
+  position: relative;
   display: flex;
   align-items: center;
   background: var(--card);
@@ -87,7 +88,7 @@ body {
   }
 }
 
-.engine-wrap { position: relative; }
+.engine-wrap { position: relative; flex-shrink: 0; }
 
 .engine-btn {
   border: none;
@@ -109,7 +110,7 @@ body {
   top: calc(100% + 10px);
   left: 0;
   z-index: 30;
-  width: 200px;
+  width: min(240px, 84vw);
   max-height: 264px;
   overflow-y: auto;
   background: $surface-color;
@@ -136,14 +137,15 @@ body {
   background: transparent;
   color: var(--text);
   font-size: 13px;
+  line-height: 1.5;
   text-align: left;
   padding: 8px 12px;
-  height: 36px;
+  flex-shrink: 0;
+  min-height: 36px;
   border-radius: 8px;
   cursor: pointer;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: anywhere;
 
   &:hover { background: rgba($accent-color, 0.14); }
 
@@ -201,6 +203,22 @@ body {
   grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
   gap: $gap-md;
   width: 100%;
+}
+
+.bookmark-card { min-width: 0; }
+
+.bookmark-edit {
+  display: block;
+  width: 100%;
+  min-height: 32px;
+  margin-top: 4px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+
+  &:hover { background: var(--card); color: var(--accent); }
 }
 
 .card {
@@ -273,6 +291,7 @@ body {
 
 /* ---------- 弹窗 ---------- */
 dialog {
+  margin: auto;
   border: none;
   border-radius: var(--radius);
   padding: 0;
@@ -340,6 +359,8 @@ dialog {
   background: var(--accent);
   color: $accent-on;
   font-weight: 600;
+
+  &:hover { filter: brightness(1.1); }
 }
 
 .danger {
@@ -351,7 +372,40 @@ dialog {
 
 .hidden { display: none !important; }
 
+:where(button, a):focus-visible,
+#search-input:focus-visible,
+.edit-form input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.app-status {
+  position: fixed;
+  bottom: 16px;
+  left: 4vw;
+  width: 92vw;
+  padding: 12px 16px;
+  border-radius: 12px;
+  background: $surface-color;
+  color: var(--text);
+  z-index: 40;
+
+  &:empty { display: none; }
+}
+
+.dialog-error { color: $danger-color; font-size: 14px; }
+.dialog-error:empty { display: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .engine-menu { animation: none; }
+  .search-box, .card, .add-btn { transition: none; }
+  .card:hover { transform: none; }
+}
+
 @media (max-width: 480px) {
+  .search-box { flex-wrap: wrap; border-radius: $radius; }
+  .engine-wrap { width: 100%; position: static; }
+  .engine-btn { width: 100%; text-align: left; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); }
-  .hint { display: none; }
+  .hint { font-size: 11px; line-height: 1.6; }
 }

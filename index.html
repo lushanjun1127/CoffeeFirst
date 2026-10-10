@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CoffeeFirst · 我的起始页</title>
+  <meta name="description" content="CoffeeFirst 是简洁的浏览器起始页，提供实时时钟、多搜索引擎切换与保存在本地的自定义书签。">
+  <meta property="og:title" content="CoffeeFirst · 我的起始页">
+  <meta property="og:description" content="时钟、多搜索引擎和自定义书签，让每次浏览从 CoffeeFirst 开始。">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://lushanjun1127.github.io/CoffeeFirst/">
+  <meta property="og:image" content="https://lushanjun1127.github.io/CoffeeFirst/social-preview.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="CoffeeFirst 浏览器起始页：时钟、搜索和自定义书签">
+  <meta property="og:locale" content="zh_CN">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☕</text></svg>">
   <script type="module" src="/src/main.ts"></script>
 </head>
@@ -19,32 +29,35 @@
     <section class="search">
       <div class="search-box">
         <div class="engine-wrap">
-          <button id="engine-toggle" class="engine-btn" title="选择搜索引擎 (Alt+←/→)">🔍 Google</button>
-          <div id="engine-menu" class="engine-menu hidden" role="menu"></div>
+          <button id="engine-toggle" class="engine-btn" type="button" title="选择搜索引擎 (Alt+←/→)" aria-haspopup="menu" aria-expanded="false" aria-controls="engine-menu">🔍 Google</button>
+          <div id="engine-menu" class="engine-menu hidden" role="menu" aria-label="搜索引擎"></div>
         </div>
-        <input id="search-input" type="text" placeholder="搜索或输入网址后回车，支持 !g !bd 等快捷语法" autocomplete="off" spellcheck="false">
-        <button id="search-go" class="go-btn" title="搜索 (Enter)">↵</button>
+        <input id="search-input" type="text" aria-label="搜索关键词或网址" aria-describedby="search-hint" placeholder="搜索或输入网址" autocomplete="off" spellcheck="false">
+        <button id="search-go" class="go-btn" type="button" aria-label="搜索或打开网址" title="搜索 (Enter)">↵</button>
       </div>
-      <p class="hint">Enter 搜索 · Ctrl+K / "/" 聚焦 · Alt+←/→ 切换引擎 · "!g 关键词" 快捷指定引擎 · Esc 清空</p>
+      <p id="search-hint" class="hint">Enter 搜索 · Ctrl+K / "/" 聚焦 · Alt+←/→ 切换引擎 · "!g 关键词" 快捷指定引擎 · Esc 清空</p>
     </section>
 
     <!-- 书签网格 -->
     <section class="bookmarks">
       <div id="grid" class="grid"></div>
-      <button id="add-bookmark" class="add-btn" title="添加书签">＋</button>
+      <button id="add-bookmark" class="add-btn" type="button" aria-label="添加书签" title="添加书签">＋</button>
     </section>
   </main>
+  <p id="app-status" class="app-status" role="status" aria-live="polite" aria-atomic="true"></p>
 
   <!-- 编辑弹窗 -->
-  <dialog id="edit-dialog">
+  <dialog id="edit-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-error">
     <form method="dialog" class="edit-form">
       <h3 id="dialog-title">添加书签</h3>
       <label>名称
         <input id="bm-name" type="text" maxlength="20" required placeholder="如：GitHub">
       </label>
       <label>网址
-        <input id="bm-url" type="url" required placeholder="https://github.com">
+        <input id="bm-url" type="text" inputmode="url" autocomplete="url" required aria-describedby="url-hint" placeholder="https://github.com">
       </label>
+      <p id="url-hint" class="hint">仅支持 HTTP/HTTPS；域名可省略协议。</p>
+      <p id="dialog-error" class="dialog-error" role="alert" aria-atomic="true"></p>
       <div class="dialog-actions">
         <button type="button" id="bm-delete" class="danger hidden">删除</button>
         <span class="spacer"></span>
